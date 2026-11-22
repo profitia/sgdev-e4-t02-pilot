@@ -1,0 +1,16 @@
+name: Pilot foreign check name
+on:
+  pull_request:
+    branches: [main]
+    types: [opened]
+permissions:
+  contents: read
+jobs:
+  synthetic_context:
+    name: e4-t02-r4-pilot
+    if: github.repository == 'profitia/sgdev-e4-t02-pilot' && github.event.pull_request.head.ref == 'pilot/e2e-foreign-context' && github.actor == 'profitia'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verify the synthetic exercise repository
+        run: test "$GITHUB_REPOSITORY_ID" = 1467343958

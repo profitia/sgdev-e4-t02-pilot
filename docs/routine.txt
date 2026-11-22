@@ -1,2 +1,3 @@
 routine fixture
 BASELINE_FAIL
+negative fixture updated

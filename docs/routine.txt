@@ -1,1 +1,3 @@
 routine fixture
+Routine fixture for isolated E4-T02.
+Routine fixture during verifier outage.

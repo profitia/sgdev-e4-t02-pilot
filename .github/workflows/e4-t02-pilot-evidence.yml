@@ -1,0 +1,51 @@
+name: Pilot original R4 evidence
+on:
+  workflow_dispatch:
+    inputs:
+      pr: {type: string, required: true}
+      head: {type: string, required: true}
+      base: {type: string, required: true}
+      merge: {type: string, required: true}
+      tree: {type: string, required: true}
+permissions:
+  contents: read
+jobs:
+  original:
+    name: e4-t02-pilot-original
+    if: github.ref == 'refs/heads/pilot-control' && github.actor == 'profitia' && github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Observe exact synthetic integration tree
+        env:
+          CANDIDATE_PR: ${{ inputs.pr }}
+          CANDIDATE_HEAD: ${{ inputs.head }}
+          CANDIDATE_BASE: ${{ inputs.base }}
+          CANDIDATE_MERGE: ${{ inputs.merge }}
+          CANDIDATE_TREE: ${{ inputs.tree }}
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_PR" =~ ^[1-9][0-9]*$ ]]
+          for oid in "$CANDIDATE_HEAD" "$CANDIDATE_BASE" "$CANDIDATE_MERGE" "$CANDIDATE_TREE"; do
+            [[ "$oid" =~ ^[a-f0-9]{40}$ ]]
+          done
+          git fetch --quiet --no-tags origin "refs/pull/$CANDIDATE_PR/merge"
+          test "$(git rev-parse FETCH_HEAD)" = "$CANDIDATE_MERGE"
+          test "$(git show -s --format=%P "$CANDIDATE_MERGE")" = "$CANDIDATE_BASE $CANDIDATE_HEAD"
+          test "$(git show -s --format=%T "$CANDIDATE_MERGE")" = "$CANDIDATE_TREE"
+          digest=$(git diff-tree -r --raw --no-commit-id --no-renames --no-ext-diff -z "$CANDIDATE_BASE" "$CANDIDATE_MERGE" | sha256sum | cut -d' ' -f1)
+          jq -n --argjson repo "$GITHUB_REPOSITORY_ID" --argjson pr "$CANDIDATE_PR" \
+            --arg head "$CANDIDATE_HEAD" --arg base "$CANDIDATE_BASE" --arg merge "$CANDIDATE_MERGE" \
+            --arg tree "$CANDIDATE_TREE" --arg diff "$digest" --arg control "$GITHUB_SHA" \
+            --argjson id "$GITHUB_RUN_ID" --argjson attempt "$GITHUB_RUN_ATTEMPT" \
+            '{repo:$repo,pr:$pr,head:$head,base:$base,merge:$merge,tree:$tree,diff:$diff,control:$control,run:$id,attempt:$attempt}' > evidence.json
+          test "$(wc -c < evidence.json)" -le 4096
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pilot-original-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence.json
+          retention-days: 1
+          if-no-files-found: error

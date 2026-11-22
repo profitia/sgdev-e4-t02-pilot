@@ -1,0 +1,27 @@
+name: Pilot native baseline
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+jobs:
+  baseline:
+    name: e4-t02-pilot-base
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Require an in-repository candidate
+        env:
+          CANDIDATE_REPO_ID: ${{ github.event.pull_request.head.repo.id }}
+        run: |
+          test "$CANDIDATE_REPO_ID" = "$GITHUB_REPOSITORY_ID"
+          test "$GITHUB_ACTOR" = profitia
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Check synthetic fixtures
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          if grep -Fxq 'BASELINE_FAIL' docs/routine.txt; then exit 1; fi
+          jq -e '.fixture==true and (.revision|type=="number")' policy/example.json >/dev/null
